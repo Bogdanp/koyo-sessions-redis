@@ -1,4 +1,4 @@
-# koyo-sessions-redis
+# koyo-sessions-redis [![CI/CD](https://github.com/Bogdanp/koyo-sessions-redis/actions/workflows/push.yml/badge.svg)](https://github.com/Bogdanp/koyo-sessions-redis/actions/workflows/push.yml)
 
 A Redis-based session store for [koyo].
 
