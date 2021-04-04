@@ -8,5 +8,6 @@
 (define build-deps '("koyo-doc"
                      "racket-doc"
                      "redis-doc"
+                     "rackunit-lib"
                      "scribble-lib"))
 (define scribblings '(("session/koyo-sessions-redis.scrbl" ())))

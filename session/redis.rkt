@@ -109,3 +109,48 @@ REMOVER
                             )))))
 
   (redis-session-store pool key-prefix ttl setter getter remover))
+
+(module+ test
+  (require rackunit)
+
+  (serializable-struct foo (x)
+    #:transparent)
+
+  (define url (getenv "REDIS_URL"))
+  (when url
+    (define-values (username password host port db)
+      (parse-redis-url url))
+    (define pool
+      (make-redis-pool
+       #:username username
+       #:password password
+       #:host host
+       #:port port
+       #:db db))
+    (define store
+      (make-redis-session-store pool))
+
+    (define sid (session-store-generate-id! store))
+
+    (test-case "ref nonexistent"
+      (check-equal? (session-store-ref store sid 'a 'not-found) 'not-found)
+      (check-exn
+       #rx"not found"
+       (lambda ()
+         (session-store-ref store sid 'a (λ () (error "not found"))))))
+
+    (test-case "store and retrieve"
+      (session-store-set! store sid 'a '(1 2 3))
+      (check-equal? (session-store-ref store sid 'a #f) '(1 2 3))
+      (session-store-remove! store sid 'a)
+      (check-false (session-store-ref store sid 'a #f)))
+
+    (test-case "update"
+      (session-store-update! store sid 'x add1 0)
+      (check-equal? (session-store-ref store sid 'x #f) 1)
+      (session-store-update! store sid 'x add1 0)
+      (check-equal? (session-store-ref store sid 'x #f) 2))
+
+    (test-case "store serializable struct"
+      (session-store-set! store sid 'foo (foo 42))
+      (check-equal? (session-store-ref store sid 'foo #f) (foo 42)))))
