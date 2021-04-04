@@ -5,6 +5,7 @@
          koyo/random
          koyo/session
          racket/contract
+         racket/fasl
          racket/format
          racket/match
          racket/port
@@ -61,11 +62,11 @@
 (define (serialize* v)
   (call-with-output-bytes
    (lambda (out)
-     (write (serialize v) out))))
+     (s-exp->fasl (serialize v) out))))
 
 (define (deserialize* bs)
   (call-with-input-bytes bs
-    (compose1 deserialize read)))
+    (compose1 deserialize fasl->s-exp)))
 
 (define (fmt ss fmt-str . args)
   (define p (redis-session-store-key-prefix ss))
