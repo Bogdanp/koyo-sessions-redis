@@ -86,7 +86,7 @@
   (->* (redis-pool?)
        (#:prefix non-empty-string?
         #:ttl exact-positive-integer?)
-       redis-session-store?)
+       session-store?)
   (define-values (setter getter remover)
     (call-with-redis-client pool
       (lambda (client)

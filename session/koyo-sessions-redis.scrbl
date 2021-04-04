@@ -23,7 +23,7 @@ that stores session data in a Redis database.
 
 @defproc[(make-redis-session-store [pool redis-pool?]
                                    [#:prefix prefix non-empty-string? "sessions"]
-                                   [#:ttl ttl exact-positive-integer? (* 7 86400)]) redis-session-store?]{
+                                   [#:ttl ttl exact-positive-integer? (* 7 86400)]) session-store?]{
   Returns a @ss-tech{session store} that stores session data in the
   Redis database that the clients provided by @racket[pool] are
   connected to.
