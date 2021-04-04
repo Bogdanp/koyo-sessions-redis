@@ -30,13 +30,13 @@
    (define session-store-load! void)
    (define session-store-persist! void)
 
-   (define (session-store-set! ss sid k v)
-     (void (dispatch ss setter sid (symbol->bytes k) (serialize* v))))
-
    (define (session-store-ref ss sid k default)
      (match (dispatch ss getter sid (symbol->bytes k))
        ['(#f) (if (procedure? default) (default) default)]
        [`(,bs) (deserialize* bs)]))
+
+   (define (session-store-set! ss sid k v)
+     (void (dispatch ss setter sid (symbol->bytes k) (serialize* v))))
 
    (define (session-store-update! ss sid k updater default)
      (define v (session-store-ref ss sid k default))
@@ -68,17 +68,22 @@
   (call-with-input-bytes bs
     (compose1 deserialize fasl->s-exp)))
 
-(define (fmt ss fmt-str . args)
+(define (fmt ss . args)
   (define p (redis-session-store-key-prefix ss))
-  (~a p ":" (apply format fmt-str args)))
+  (call-with-output-bytes
+   (lambda (out)
+     (write-bytes p out)
+     (write-bytes #":" out)
+     (for ([arg (in-list args)])
+       (write-string arg out)))))
 
 (define (fmt-sid ss sid)
-  (fmt ss "session:~a" sid))
+  (fmt ss "session:" sid))
 
 (define (symbol->bytes s)
   (call-with-output-bytes
    (lambda (out)
-     (write s out))))
+     (write-string (symbol->string s) out))))
 
 (define/contract (make-redis-session-store
                   pool
@@ -109,7 +114,8 @@ redis.call('EXPIRE', KEYS[1], ARGV[2])
 REMOVER
                             )))))
 
-  (redis-session-store pool key-prefix ttl setter getter remover))
+  (define prefix-bs (string->bytes/utf-8 key-prefix))
+  (redis-session-store pool prefix-bs ttl setter getter remover))
 
 (module+ test
   (require rackunit)
