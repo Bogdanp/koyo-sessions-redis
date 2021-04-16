@@ -19,12 +19,16 @@
  make-redis-session-store)
 
 (struct redis-session-store
-  (pool key-prefix ttl setter getter remover)
+  (pool key-prefix ttl incrementer setter getter remover)
   #:methods gen:session-store
   [(define (session-store-generate-id! ss)
      (call-with-redis-client (redis-session-store-pool ss)
        (lambda (client)
-         (define seq-id (redis-bytes-incr! client (fmt ss "seq")))
+         (define incr (redis-session-store-incrementer ss))
+         (define seq-id
+           (incr client
+                 #:keys (list (fmt ss "seq"))
+                 #:args null))
          (~a seq-id "." (generate-random-string)))))
 
    (define session-store-load! void)
@@ -93,10 +97,22 @@
        (#:prefix non-empty-string?
         #:ttl exact-positive-integer?)
        session-store?)
-  (define-values (setter getter remover)
+  (define-values (incrementer setter getter remover)
     (call-with-redis-client pool
       (lambda (client)
         (values
+         (make-redis-script client #<<INCREMENTER
+local seq = 1
+local function incr()
+  seq = redis.call('INCR', KEYS[1])
+end
+
+if not pcall(incr) then
+  redis.call('SET', KEYS[1], '1')
+end
+return seq
+INCREMENTER
+                            )
          (make-redis-script client #<<SETTER
 redis.call('HMSET', KEYS[1], ARGV[1], ARGV[2])
 redis.call('EXPIRE', KEYS[1], ARGV[3])
@@ -115,7 +131,7 @@ REMOVER
                             )))))
 
   (define prefix-bs (string->bytes/utf-8 key-prefix))
-  (redis-session-store pool prefix-bs ttl setter getter remover))
+  (redis-session-store pool prefix-bs ttl incrementer setter getter remover))
 
 (module+ test
   (require rackunit)
@@ -136,6 +152,7 @@ REMOVER
        #:db db))
     (define store
       (make-redis-session-store pool))
+    (call-with-redis-client pool redis-flush-all!)
 
     (define sid (session-store-generate-id! store))
 
@@ -160,4 +177,11 @@ REMOVER
 
     (test-case "store serializable struct"
       (session-store-set! store sid 'foo (foo 42))
-      (check-equal? (session-store-ref store sid 'foo #f) (foo 42)))))
+      (check-equal? (session-store-ref store sid 'foo #f) (foo 42)))
+
+    (test-case "handle seq overflow"
+      (call-with-redis-client pool
+        (lambda (c)
+          (redis-bytes-set! c #"sessions:seq" (number->string (sub1 (expt 2 63))))))
+      (check-true
+       (string-prefix? (session-store-generate-id! store) "1.")))))
