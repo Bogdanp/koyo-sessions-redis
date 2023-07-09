@@ -11,4 +11,4 @@
                      "redis-doc"
                      "rackunit-lib"
                      "scribble-lib"))
-(define scribblings '(("session/koyo-sessions-redis.scrbl" ())))
+(define scribblings '(("session/koyo-sessions-redis.scrbl" () ("Web Development"))))
