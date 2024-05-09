@@ -4,7 +4,7 @@
                      racket/syntax)
          koyo/random
          koyo/session
-         racket/contract
+         racket/contract/base
          racket/fasl
          racket/format
          racket/match
@@ -15,8 +15,13 @@
          syntax/parse/define)
 
 (provide
- redis-session-store?
- make-redis-session-store)
+ (contract-out
+  [redis-session-store? (-> any/c boolean?)]
+  [make-redis-session-store
+   (->* [redis-pool?]
+        [#:prefix non-empty-string?
+         #:ttl exact-positive-integer?]
+        session-store?)]))
 
 (struct redis-session-store
   (pool key-prefix ttl incrementer setter getter remover)
@@ -89,14 +94,10 @@
    (lambda (out)
      (write-string (symbol->string s) out))))
 
-(define/contract (make-redis-session-store
-                  pool
-                  #:prefix [key-prefix "sessions"]
-                  #:ttl [ttl (* 7 86400)])
-  (->* (redis-pool?)
-       (#:prefix non-empty-string?
-        #:ttl exact-positive-integer?)
-       session-store?)
+(define (make-redis-session-store
+         pool
+         #:prefix [key-prefix "sessions"]
+         #:ttl [ttl (* 7 86400)])
   (define-values (incrementer setter getter remover)
     (call-with-redis-client pool
       (lambda (client)
